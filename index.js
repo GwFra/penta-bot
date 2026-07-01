@@ -3,6 +3,7 @@ import { Client, GatewayIntentBits, Collection } from "discord.js";
 import { readdirSync } from "fs";
 import { pathToFileURL, fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { startAuthServer } from "./auth/server.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PREFIX = "!";
@@ -45,4 +46,5 @@ client.on("messageCreate", (message) => {
   if (command) command.execute(message, args);
 });
 
+startAuthServer(process.env.PORT || 3000);
 client.login(process.env.DISCORD_TOKEN);
