@@ -1,3 +1,7 @@
 node_modules
 .env
 example-response.json
+match-timeline.json
+presence.json
+
+.DS_Store

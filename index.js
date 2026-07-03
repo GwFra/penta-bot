@@ -13,6 +13,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildPresences,
   ],
 });
 
@@ -31,6 +32,25 @@ for (const file of commandFiles) {
 
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
+});
+
+client.on("presenceUpdate", (oldPresence, newPresence) => {
+  const activity = newPresence?.activities?.find(
+    (a) => a.name === "League of Legends" && a.details === "ARAM",
+  );
+
+  if (activity) {
+    // Compare old and new to see when the aram game finishes
+    const oldActivity = oldPresence?.activities?.find(
+      (act) => act.name === "League of Legends" && act.details === "ARAM",
+    );
+
+    if (oldActivity?.state === "In Game" && activity.state === "In Lobby") {
+      // Some logic to then update the penta and get the games
+      // Make some cool fetches to the API
+      console.log(`${newPresence.user.username} has finished their ARAM game!`);
+    }
+  }
 });
 
 client.on("messageCreate", (message) => {

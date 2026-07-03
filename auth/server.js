@@ -11,7 +11,7 @@ router.get("/auth/discord", (req, res) => {
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URI,
     response_type: "code",
-    scope: "identify",
+    scope: "identify connections",
   });
   res.redirect(`https://discord.com/api/oauth2/authorize?${params}`);
 });
@@ -45,14 +45,24 @@ router.get("/auth/discord/callback", async (req, res) => {
     console.log(`Access token: ${access_token}`);
     console.log(`Token type: ${token_type}`);
 
-    // Use the access token to fetch the user's identity
-    const userRes = await fetch("https://discord.com/api/users/@me", {
-      headers: { Authorization: `${token_type} ${access_token}` },
-    });
-    const user = await userRes.json();
+    // Use the access token to fetch the user's identity - not too sure what we want from this
+    // const userRes = await fetch("https://discord.com/api/users/@me", {
+    //   headers: { Authorization: `${token_type} ${access_token}` },
+    // });
+    // const user = await userRes.json();
 
-    console.log(JSON.stringify(user, null, 2));
-    console.log(`User logged in: ${user.username}#${user.discriminator}`);
+    const connectionsRes = await fetch(
+      "https://discord.com/api/users/@me/connections",
+      {
+        headers: { Authorization: `${token_type} ${access_token}` },
+      },
+    );
+    // obtain league of legends connections = connections.find(conn => conn.type === "leagueoflegends");
+    const connections = await connectionsRes.json();
+    console.log(`Connections: ${JSON.stringify(connections, null, 2)}`);
+
+    // console.log(JSON.stringify(user, null, 2));
+    // console.log(`User logged in: ${user.username}#${user.discriminator}`);
 
     res.send(`Logged in as ${user.username}#${user.discriminator}`);
   } catch (err) {
