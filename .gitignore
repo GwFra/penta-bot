@@ -3,5 +3,6 @@ node_modules
 example-response.json
 match-timeline.json
 presence.json
+earlier-timeline-response.json
 
 .DS_Store

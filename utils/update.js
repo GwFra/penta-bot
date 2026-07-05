@@ -1,31 +1,37 @@
-import { PUUID_API, MATCHES_API, MATCH_API } from "../commands/history.js";
-import { fetchJSON } from "./api.js";
-// Do we need to store users PUUID within the DB?
-// Less API = better?
+import {
+  fetchJSON,
+  PUUID_API,
+  MATCHES_API,
+  MATCH_API,
+  MATCH_TIMELINE,
+} from "./api.js";
+import { getUserByPuuid, upsertUser } from "../services/userStore.js";
+import { saveMatchStats } from "../services/stats.js";
 
-// Multi kill window is 10 seconds
-// Once you're on a quadrakill you have 30 seconds to get it
+// Process should be as follows
+// 1. Detects a game has finished with x number of users in discord (2 or more)
+// 2. determines if multikill of 4 or over occured
+// 4. if YES, determine if penta was stolen
+// 5. gather info for all players and if penta was done against team of 2 or more
+// 6. respond in discord + update DB with information
 
-const MATCH_TIMELINE = (matchId) =>
-  `${REGIONAL_BASE}/lol/match/v5/matches/${matchId}/timeline`;
 const SNOWBALL_SPELL_ID = 32;
 const MULTI_KILL_WINDOW_MS = 10000;
 const PENTA_KILL_WINDOW_MS = 30000;
 
-export async function obtainResults() {
-  // Assume it gets called when game has been finished
-  // Obtain league puuid - currently hardcoded to elementninjara
+export async function obtainResults(discordUser) {
   const { puuid } = await fetchJSON(PUUID_API);
-
-  // API call fetches the latest game assuming its just finished
   const matches = await fetchJSON(MATCHES_API(puuid));
-  const matchData = await fetchJSON(MATCH_API(matches[0]));
+  const matchId = matches[8];
 
-  // obtain required stats
+  const [matchData, matchTimeline] = await Promise.all([
+    fetchJSON(MATCH_API(matchId)),
+    fetchJSON(MATCH_TIMELINE(matchId)),
+  ]);
+
   const participant = matchData.info.participants.find(
     (p) => p.puuid === puuid,
   );
-
   const {
     summoner1Id,
     summoner1Casts,
@@ -41,102 +47,102 @@ export async function obtainResults() {
       ? summoner1Casts
       : summoner2Id === SNOWBALL_SPELL_ID
         ? summoner2Casts
-        : false;
+        : 0;
+
+  const snowballsMissed = Math.max(0, snowballCasts - snowballsHit);
+  const stolenPentas =
+    largestMultiKill >= 4
+      ? findStolenPentas(matchTimeline, participant.participantId)
+      : [];
+
+  // Ensure user exists in DB
+  const user = await upsertUser({
+    discordId: "unique_id",
+    discordName: "#gwfranklin",
+    lolName: participant.summonerName,
+    puuid,
+  });
+
+  await saveMatchStats({
+    userId: user.id,
+    matchId,
+    pentaKills,
+    snowballsHit,
+    snowballsMissed,
+    stolenPentas,
+  });
 
   return {
     pentaKills,
-    tookSnowball: snowballCasts > 0,
-    snowballsHit,
-    snowballsMissed: snowballCasts > 0 ? snowballCasts - snowballsHit : 0,
-    poroExplosions,
     largestMultiKill,
-    stolenPentas:
-      largestMultiKill >= 4
-        ? findStolenPentas(matchData.timeline, participant.participantId)
-        : [],
+    poroExplosions,
+    snowballsHit,
+    snowballsMissed,
+    stolenPentas,
   };
 }
 
-// only needs to be called if player has largestMultiKill of 4
-function findMultiKillTimestamps(timeline, puuid) {
-  // Find all timestamps of kills for the given puuid
-  // as largestMultiKill === 4 will trigger this function
-  const kills = timeline.info.frames
+function getKillEvents(timeline) {
+  return timeline.info.frames
     .flatMap((f) => f.events)
-    .filter((e) => e.type === "CHAMPION_KILL" && e.killerId === puuid)
+    .filter((e) => e.type === "CHAMPION_KILL");
+}
+
+function findMultiKillTimestamps(timeline, participantId) {
+  const kills = getKillEvents(timeline)
+    .filter((e) => e.killerId === participantId)
     .map((e) => e.timestamp);
 
-  // don't like this way of programming
-  const results = [];
-  let streak = [kills[0]];
-
-  // Iterate through the kills and find streaks of kills within the MULTI_KILL_WINDOW_MS
-  for (let i = 1; i < kills.length; i++) {
-    if (kills[i] - streak[streak.length - 1] <= MULTI_KILL_WINDOW_MS) {
-      streak.push(kills[i]);
-      if (streak.length === 4) {
-        results.push({
-          startedAt: streak[0],
-          endedAt: streak[streak.length - 1],
-          durationMs: streak[streak.length - 1] - streak[0],
-        });
-      }
-    } else {
-      streak = [kills[i]];
-    }
-  }
-  return results;
+  return kills.reduce(
+    ({ results, streak }, ts) => {
+      const active =
+        streak.length && ts - streak[streak.length - 1] <= MULTI_KILL_WINDOW_MS
+          ? streak
+          : [];
+      const next = [...active, ts];
+      return {
+        streak: next,
+        results:
+          next.length === 4
+            ? [
+                ...results,
+                { startedAt: next[0], endedAt: ts, durationMs: ts - next[0] },
+              ]
+            : results,
+      };
+    },
+    { results: [], streak: [] },
+  ).results;
 }
 
 function findStolenPentas(timeline, targetParticipantId) {
-  // participantId's team
   const { teamId } = timeline.info.participants.find(
     (p) => p.participantId === targetParticipantId,
   );
-  const teammates = timeline.info.participants
-    .filter((p) => p.teamId === teamId)
-    .map((p) => p.participantId);
-
-  // [{
-  //     killCount: number;
-  //     startedAt: any;
-  //     endedAt: any;
-  //     durationMs: number;
-  // }, ...]
-  const quadKillTimeline = findMultiKillTimestamps(
-    timeline,
-    targetParticipantId,
+  const teammates = new Set(
+    timeline.info.participants
+      .filter(
+        (p) => p.teamId === teamId && p.participantId !== targetParticipantId,
+      )
+      .map((p) => p.participantId),
   );
 
-  const stolenPentas = [];
+  const killEvents = getKillEvents(timeline);
+  const quadKills = findMultiKillTimestamps(timeline, targetParticipantId);
 
-  // Search for kills within the quadKillTimeline
-  // filter out all the kills that occur within the PENTA_KILL_WINDOW_MS
-  // determine if a player on their team got the kill
-  for (const kill of quadKillTimeline) {
-    const { endedAt } = kill;
-
-    timeline.info.events
-      .filter((e) => e.type === "CHAMPION_KILL")
+  return quadKills.flatMap(({ endedAt }) =>
+    killEvents
       .filter(
         (e) =>
-          e.timestamp >= endedAt &&
+          e.timestamp > endedAt &&
           e.timestamp <= endedAt + PENTA_KILL_WINDOW_MS,
       )
-      .forEach((e) => {
-        const { killerId, timestamp } = e;
-        if (killerId !== targetParticipantId && teammates.includes(killerId)) {
-          stolenPentas.push({
-            stolenBy: killerId,
-            stolenFrom: targetParticipantId,
-            timestamp,
-          });
-          // This kill was stolen by a teammate
-          console.log(
-            `Penta kill stolen by participant ${killerId} at ${timestamp}`,
-          );
-        }
-      });
-  }
-  return stolenPentas;
+      .filter((e) => teammates.has(e.killerId))
+      .map((e) => ({
+        // Teammate PUUID
+        stolenBy: e.killerId,
+        stolenFrom: targetParticipantId,
+        timestamp: e.timestamp,
+      })),
+  );
 }

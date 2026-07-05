@@ -34,7 +34,7 @@ client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
-client.on("presenceUpdate", (oldPresence, newPresence) => {
+client.on("presenceUpdate", async (oldPresence, newPresence) => {
   const activity = newPresence?.activities?.find(
     (a) => a.name === "League of Legends" && a.details === "ARAM",
   );
@@ -48,6 +48,8 @@ client.on("presenceUpdate", (oldPresence, newPresence) => {
     if (oldActivity?.state === "In Game" && activity.state === "In Lobby") {
       // Some logic to then update the penta and get the games
       // Make some cool fetches to the API
+      // const killData = await obtainResults();
+      // console.log("Penta/Quad data", killData);
       console.log(`${newPresence.user.username} has finished their ARAM game!`);
     }
   }
