@@ -5,6 +5,7 @@ import {
   MATCH_API,
   MATCH_TIMELINE,
 } from "./api.js";
+import { withRetry } from "./retry.js";
 import { getUserByPuuid, upsertUser } from "../services/userStore.js";
 import { saveMatchStats } from "../services/stats.js";
 
@@ -22,6 +23,7 @@ const PENTA_KILL_WINDOW_MS = 30000;
 export async function obtainResults(discordUser) {
   const { puuid } = await fetchJSON(PUUID_API);
   const matches = await fetchJSON(MATCHES_API(puuid));
+  // should default to 0
   const matchId = matches[8];
 
   const [matchData, matchTimeline] = await Promise.all([
@@ -80,6 +82,92 @@ export async function obtainResults(discordUser) {
     snowballsMissed,
     stolenPentas,
   };
+}
+
+// Given the matchId of a game that has just finished (derived from the
+// gameId captured at game-start, see toMatchId in api.js) and the tracked
+// users who were in it, waits for Riot to finish processing the match, then
+// computes and saves penta/snowball/stolen-penta stats for each of them.
+export async function obtainResultsForMatch(matchId, trackedUsers) {
+  // Match-v5 briefly 404s right after a game ends, before Riot has finished
+  // processing it - retry with backoff until it's available.
+  const matchData = await withRetry(() => fetchJSON(MATCH_API(matchId)));
+  const matchTimeline = await fetchJSON(MATCH_TIMELINE(matchId));
+
+  const trackedParticipants = trackedUsers
+    .map((user) => {
+      const participant = matchData.info.participants.find(
+        (p) => p.puuid === user.puuid,
+      );
+      return participant && { user, participant };
+    })
+    .filter(Boolean);
+
+  // participantId -> our internal user id, for every tracked player Riot
+  // confirms was actually in this match.
+  const userIdByParticipantId = new Map(
+    trackedParticipants.map(({ user, participant }) => [
+      participant.participantId,
+      user.id,
+    ]),
+  );
+
+  const results = [];
+
+  for (const { user, participant } of trackedParticipants) {
+    const {
+      summoner1Id,
+      summoner1Casts,
+      summoner2Id,
+      summoner2Casts,
+      pentaKills,
+      largestMultiKill,
+      challenges: { poroExplosions, snowballsHit },
+    } = participant;
+
+    const snowballCasts =
+      summoner1Id === SNOWBALL_SPELL_ID
+        ? summoner1Casts
+        : summoner2Id === SNOWBALL_SPELL_ID
+          ? summoner2Casts
+          : 0;
+
+    const snowballsMissed = Math.max(0, snowballCasts - snowballsHit);
+
+    // stolen_pentas rows reference users.id, so a steal can only be
+    // recorded when the player who stole it is also a tracked user.
+    const stolenPentas =
+      largestMultiKill >= 4
+        ? findStolenPentas(matchTimeline, participant.participantId)
+            .filter((steal) => userIdByParticipantId.has(steal.stolenBy))
+            .map((steal) => ({
+              stolenBy: userIdByParticipantId.get(steal.stolenBy),
+              stolenFrom: user.id,
+              timestamp: steal.timestamp,
+            }))
+        : [];
+
+    await saveMatchStats({
+      userId: user.id,
+      matchId,
+      pentaKills,
+      snowballsHit,
+      snowballsMissed,
+      stolenPentas,
+    });
+
+    results.push({
+      discordId: user.discordId,
+      pentaKills,
+      largestMultiKill,
+      poroExplosions,
+      snowballsHit,
+      snowballsMissed,
+      stolenPentas,
+    });
+  }
+
+  return results;
 }
 
 function getKillEvents(timeline) {

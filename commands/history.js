@@ -1,10 +1,16 @@
 import { fetchJSON, PUUID_API, MATCHES_API, MATCH_API } from "../utils/api.js";
+import { getUserByDiscordUsername } from "../services/userStore.js";
 
 export default {
   name: "history",
   async execute(message, args) {
-    const user = args.join(" ");
-    if (!user) {
+    const argsUser = args.join(" ");
+    console.log(await getUserByDiscordUsername(message.author.username));
+    const userToSearch =
+      argsUser ||
+      (await getUserByDiscordUsername(message.author.username)).lolName;
+
+    if (!userToSearch) {
       return message.reply("Usage: `!history <user>`");
     }
 
@@ -12,7 +18,10 @@ export default {
     const reply = await message.reply(`Fetching match history...`);
 
     try {
-      const puuidData = await fetchJSON(PUUID_API);
+      const puuidData = await fetchJSON(PUUID_API(userToSearch));
+      if (!puuidData) {
+        return message.reply(`Oops, no stats found for ${userToSearch}`);
+      }
       const puuid = puuidData.puuid;
       const matchesData = await fetchJSON(MATCHES_API(puuid));
 

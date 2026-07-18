@@ -4,6 +4,11 @@ import { readdirSync } from "fs";
 import { pathToFileURL, fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { startAuthServer } from "./auth/server.js";
+import { addPlayerToGame, removePlayerFromGame } from "./services/gameQueue.js";
+import { getUserByDiscordId } from "./services/userStore.js";
+import { fetchJSON, SPECTATOR_API, toMatchId } from "./utils/api.js";
+import { withRetry } from "./utils/retry.js";
+import { obtainResultsForMatch } from "./utils/update.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PREFIX = "!";
@@ -45,12 +50,49 @@ client.on("presenceUpdate", async (oldPresence, newPresence) => {
       (act) => act.name === "League of Legends" && act.details === "ARAM",
     );
 
+    if (oldActivity?.state === "In Lobby" && activity.state === "In Game") {
+      const user = await getUserByDiscordId(newPresence.userId);
+      if (!user?.puuid) {
+        console.log(`${newPresence.user.username} entered a game but isn't tracked yet`);
+        return;
+      }
+
+      try {
+        const { gameId } = await withRetry(() =>
+          fetchJSON(SPECTATOR_API(user.puuid)),
+        );
+        const matchId = toMatchId(gameId);
+        const others = await addPlayerToGame(newPresence.userId, matchId);
+        console.log(
+          `${newPresence.user.username} entered game ${matchId} (${others.length} other tracked players in it)`,
+        );
+      } catch (err) {
+        console.error(`Failed to look up active game for ${newPresence.user.username}`, err);
+      }
+    }
+
     if (oldActivity?.state === "In Game" && activity.state === "In Lobby") {
-      // Some logic to then update the penta and get the games
-      // Make some cool fetches to the API
-      // const killData = await obtainResults();
-      // console.log("Penta/Quad data", killData);
-      console.log(`${newPresence.user.username} has finished their ARAM game!`);
+      const { matchId, others } = await removePlayerFromGame(newPresence.userId);
+      console.log(
+        `${newPresence.user.username} has finished their ARAM game! (${others.length} other tracked players were in it)`,
+      );
+
+      if (!matchId) return;
+
+      try {
+        const trackedUsers = (
+          await Promise.all(
+            [newPresence.userId, ...others].map((discordId) =>
+              getUserByDiscordId(discordId),
+            ),
+          )
+        ).filter((user) => user?.puuid);
+
+        const results = await obtainResultsForMatch(matchId, trackedUsers);
+        console.log(`Penta/Quad data for ${matchId}`, results);
+      } catch (err) {
+        console.error(`Failed to process results for match ${matchId}`, err);
+      }
     }
   }
 });

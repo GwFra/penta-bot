@@ -1,6 +1,6 @@
-import { db } from '../db/index.js';
-import { users } from '../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { db } from "../db/index.js";
+import { users } from "../db/schema.js";
+import { eq } from "drizzle-orm";
 
 export async function upsertUser({ discordId, discordName, lolName, puuid }) {
   const [user] = await db
@@ -15,7 +15,18 @@ export async function upsertUser({ discordId, discordName, lolName, puuid }) {
 }
 
 export async function getUserByDiscordId(discordId) {
-  const [user] = await db.select().from(users).where(eq(users.discordId, discordId));
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.discordId, discordId));
+  return user ?? null;
+}
+
+export async function getUserByDiscordUsername(username) {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.discordName, `#${username}`));
   return user ?? null;
 }
 
