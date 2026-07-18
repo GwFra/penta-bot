@@ -1,8 +1,20 @@
 import { db } from "../db/index.js";
-import { users } from "../db/schema.js";
+import { users, type User } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 
-export async function upsertUser({ discordId, discordName, lolName, puuid }) {
+interface UpsertUserInput {
+  discordId: string;
+  discordName: string;
+  lolName?: string | null;
+  puuid?: string | null;
+}
+
+export async function upsertUser({
+  discordId,
+  discordName,
+  lolName,
+  puuid,
+}: UpsertUserInput): Promise<User> {
   const [user] = await db
     .insert(users)
     .values({ discordId, discordName, lolName, puuid })
@@ -14,7 +26,9 @@ export async function upsertUser({ discordId, discordName, lolName, puuid }) {
   return user;
 }
 
-export async function getUserByDiscordId(discordId) {
+export async function getUserByDiscordId(
+  discordId: string,
+): Promise<User | null> {
   const [user] = await db
     .select()
     .from(users)
@@ -22,7 +36,9 @@ export async function getUserByDiscordId(discordId) {
   return user ?? null;
 }
 
-export async function getUserByDiscordUsername(username) {
+export async function getUserByDiscordUsername(
+  username: string,
+): Promise<User | null> {
   const [user] = await db
     .select()
     .from(users)
@@ -30,7 +46,7 @@ export async function getUserByDiscordUsername(username) {
   return user ?? null;
 }
 
-export async function getUserByPuuid(puuid) {
+export async function getUserByPuuid(puuid: string): Promise<User | null> {
   const [user] = await db.select().from(users).where(eq(users.puuid, puuid));
   return user ?? null;
 }

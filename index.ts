@@ -9,6 +9,10 @@ import { getUserByDiscordId } from "./services/userStore.js";
 import { fetchJSON, SPECTATOR_API, toMatchId } from "./utils/api.js";
 import { withRetry } from "./utils/retry.js";
 import { obtainResultsForMatch } from "./utils/update.js";
+import { requireEnv } from "./utils/env.js";
+import type { Command } from "./types/command.js";
+import type { ActiveGame } from "./types/riot.js";
+import type { User } from "./db/schema.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PREFIX = "!";
@@ -20,23 +24,23 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildPresences,
   ],
-});
+}) as Client & { commands: Collection<string, Command> };
 
 client.commands = new Collection();
 
-// Load all command files from ./commands
-const commandFiles = readdirSync(join(__dirname, "commands")).filter((f) =>
-  f.endsWith(".js"),
+// Load all command files from ./commands (.ts under tsx in dev, .js once compiled)
+const commandFiles = readdirSync(join(__dirname, "commands")).filter(
+  (f) => f.endsWith(".js") || f.endsWith(".ts"),
 );
 for (const file of commandFiles) {
-  const { default: command } = await import(
-    pathToFileURL(join(__dirname, "commands", file))
-  );
+  const { default: command } = (await import(
+    pathToFileURL(join(__dirname, "commands", file)).href
+  )) as { default: Command };
   client.commands.set(command.name, command);
 }
 
 client.once("ready", () => {
-  console.log(`Logged in as ${client.user.tag}`);
+  console.log(`Logged in as ${client.user?.tag}`);
 });
 
 client.on("presenceUpdate", async (oldPresence, newPresence) => {
@@ -44,7 +48,7 @@ client.on("presenceUpdate", async (oldPresence, newPresence) => {
     (a) => a.name === "League of Legends" && a.details === "ARAM",
   );
 
-  if (activity) {
+  if (activity && newPresence.user) {
     // Compare old and new to see when the aram game finishes
     const oldActivity = oldPresence?.activities?.find(
       (act) => act.name === "League of Legends" && act.details === "ARAM",
@@ -59,7 +63,7 @@ client.on("presenceUpdate", async (oldPresence, newPresence) => {
 
       try {
         const { gameId } = await withRetry(() =>
-          fetchJSON(SPECTATOR_API(user.puuid)),
+          fetchJSON<ActiveGame>(SPECTATOR_API(user.puuid as string)),
         );
         const matchId = toMatchId(gameId);
         const others = await addPlayerToGame(newPresence.userId, matchId);
@@ -82,11 +86,9 @@ client.on("presenceUpdate", async (oldPresence, newPresence) => {
       try {
         const trackedUsers = (
           await Promise.all(
-            [newPresence.userId, ...others].map((discordId) =>
-              getUserByDiscordId(discordId),
-            ),
+            [newPresence.userId, ...others].map((discordId) => getUserByDiscordId(discordId)),
           )
-        ).filter((user) => user?.puuid);
+        ).filter((user): user is User => user !== null && Boolean(user.puuid));
 
         const results = await obtainResultsForMatch(matchId, trackedUsers);
         console.log(`Penta/Quad data for ${matchId}`, results);
@@ -101,14 +103,11 @@ client.on("messageCreate", (message) => {
   if (message.author.bot) return;
   if (!message.content.startsWith(PREFIX)) return;
 
-  const [commandName, ...args] = message.content
-    .slice(PREFIX.length)
-    .trim()
-    .split(/\s+/);
+  const [commandName, ...args] = message.content.slice(PREFIX.length).trim().split(/\s+/);
   const command = client.commands.get(commandName.toLowerCase());
 
   if (command) command.execute(message, args);
 });
 
 startAuthServer(process.env.PORT || 3000);
-client.login(process.env.DISCORD_TOKEN);
+client.login(requireEnv("DISCORD_TOKEN"));

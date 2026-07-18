@@ -1,9 +1,11 @@
 import { obtainResults } from "../utils/update.js";
 import { getUserByDiscordId } from "../services/userStore.js";
+import type { Command } from "../types/command.js";
+import type { Guild } from "discord.js";
 
 const GAME_NAME = "League of Legends";
 
-function getMembersInGame(guild) {
+function getMembersInGame(guild: Guild) {
   // Relies on presences already cached via the GuildPresences intent
   // (see index.js) - no GuildMembers intent, so this only sees members
   // whose presence the bot has observed since login.
@@ -14,24 +16,20 @@ function getMembersInGame(guild) {
   );
 }
 
-export default {
+const penta: Command = {
   name: "penta",
   async execute(message) {
     if (!message.guild) {
-      return message.reply("This command can only be used in a server.");
+      return void message.reply("This command can only be used in a server.");
     }
 
     const membersInGame = getMembersInGame(message.guild);
     const usersInGame = (
-      await Promise.all(
-        membersInGame.map((member) => getUserByDiscordId(member.id)),
-      )
-    ).filter(Boolean);
+      await Promise.all(membersInGame.map((member) => getUserByDiscordId(member.id)))
+    ).filter((user) => user !== null);
 
     if (usersInGame.length < 2) {
-      return message.reply(
-        "Not enough tracked players currently in a game together.",
-      );
+      return void message.reply("Not enough tracked players currently in a game together.");
     }
 
     // Flow should be as follows:
@@ -41,6 +39,8 @@ export default {
     // Once checked through all players, update DB and send message
 
     const res = await obtainResults(usersInGame);
-    message.reply(`Penta/Quad data: ${JSON.stringify(res)}`);
+    await message.reply(`Penta/Quad data: ${JSON.stringify(res)}`);
   },
 };
+
+export default penta;

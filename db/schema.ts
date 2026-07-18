@@ -44,3 +44,8 @@ export const stolenPentas = pgTable("stolen_pentas", {
   gameTimestamp: integer("game_timestamp").notNull(),
   recordedAt: timestamp("recorded_at", { withTimezone: true }).defaultNow(),
 });
+
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type MatchStats = typeof matchStats.$inferSelect;
+export type StolenPenta = typeof stolenPentas.$inferSelect;
