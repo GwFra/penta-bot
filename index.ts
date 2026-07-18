@@ -24,7 +24,9 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildPresences,
   ],
-}) as Client & { commands: Collection<string, Command> };
+}) as Client & {
+  commands: Collection<string, Command>;
+};
 
 client.commands = new Collection();
 
@@ -57,7 +59,9 @@ client.on("presenceUpdate", async (oldPresence, newPresence) => {
     if (oldActivity?.state === "In Lobby" && activity.state === "In Game") {
       const user = await getUserByDiscordId(newPresence.userId);
       if (!user?.puuid) {
-        console.log(`${newPresence.user.username} entered a game but isn't tracked yet`);
+        console.log(
+          `${newPresence.user.username} entered a game but isn't tracked yet`,
+        );
         return;
       }
 
@@ -71,12 +75,17 @@ client.on("presenceUpdate", async (oldPresence, newPresence) => {
           `${newPresence.user.username} entered game ${matchId} (${others.length} other tracked players in it)`,
         );
       } catch (err) {
-        console.error(`Failed to look up active game for ${newPresence.user.username}`, err);
+        console.error(
+          `Failed to look up active game for ${newPresence.user.username}`,
+          err,
+        );
       }
     }
 
     if (oldActivity?.state === "In Game" && activity.state === "In Lobby") {
-      const { matchId, others } = await removePlayerFromGame(newPresence.userId);
+      const { matchId, others } = await removePlayerFromGame(
+        newPresence.userId,
+      );
       console.log(
         `${newPresence.user.username} has finished their ARAM game! (${others.length} other tracked players were in it)`,
       );
@@ -86,7 +95,9 @@ client.on("presenceUpdate", async (oldPresence, newPresence) => {
       try {
         const trackedUsers = (
           await Promise.all(
-            [newPresence.userId, ...others].map((discordId) => getUserByDiscordId(discordId)),
+            [newPresence.userId, ...others].map((discordId) =>
+              getUserByDiscordId(discordId),
+            ),
           )
         ).filter((user): user is User => user !== null && Boolean(user.puuid));
 
@@ -103,7 +114,10 @@ client.on("messageCreate", (message) => {
   if (message.author.bot) return;
   if (!message.content.startsWith(PREFIX)) return;
 
-  const [commandName, ...args] = message.content.slice(PREFIX.length).trim().split(/\s+/);
+  const [commandName, ...args] = message.content
+    .slice(PREFIX.length)
+    .trim()
+    .split(/\s+/);
   const command = client.commands.get(commandName.toLowerCase());
 
   if (command) command.execute(message, args);

@@ -32,7 +32,13 @@ export async function saveMatchStats({
 }: SaveMatchStatsInput): Promise<void> {
   await db
     .insert(matchStats)
-    .values({ userId, matchId, pentaKills, snowballsHit, snowballsMissed })
+    .values({
+      userId,
+      matchId,
+      pentaKills,
+      snowballsHit,
+      snowballsMissed,
+    })
     .onConflictDoNothing();
 
   if (stolenPentas.length) {
@@ -102,7 +108,9 @@ export async function getStolenPentaStats(
 
 export async function getServerTotalPentas(): Promise<number> {
   const [result] = await db
-    .select({ total: sum(matchStats.pentaKills) })
+    .select({
+      total: sum(matchStats.pentaKills),
+    })
     .from(matchStats);
   return Number(result.total ?? 0);
 }

@@ -83,11 +83,11 @@ silently skipped.
 
 All commands use the `!` prefix (e.g. `!ping`).
 
-| Command | Usage | Description |
-| --- | --- | --- |
-| `!ping` | `!ping` | Replies "Pong!" — basic liveness check. |
-| `!history` | `!history [riotId]` | Looks up a Riot account (defaults to the caller's linked `lolName`), fetches their last 10 ARAM (queue 450) match IDs, pulls each match, and replies with combined kills/deaths/assists across those games. |
-| `!penta` | `!penta` | Server-only. Finds guild members currently showing an "In Game" League of Legends presence, filters to ones that are tracked users, and (if 2+ are found) runs `obtainResults` to summarize penta/multikill data for the game. Still uses the older, hardcoded `obtainResults` path (see below) rather than the automatic per-match flow. |
+| Command    | Usage               | Description                                                                                                                                                                                                                                                                                                                               |
+| ---------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `!ping`    | `!ping`             | Replies "Pong!" — basic liveness check.                                                                                                                                                                                                                                                                                                   |
+| `!history` | `!history [riotId]` | Looks up a Riot account (defaults to the caller's linked `lolName`), fetches their last 10 ARAM (queue 450) match IDs, pulls each match, and replies with combined kills/deaths/assists across those games.                                                                                                                               |
+| `!penta`   | `!penta`            | Server-only. Finds guild members currently showing an "In Game" League of Legends presence, filters to ones that are tracked users, and (if 2+ are found) runs `obtainResults` to summarize penta/multikill data for the game. Still uses the older, hardcoded `obtainResults` path (see below) rather than the automatic per-match flow. |
 
 ### Match/kill analysis (`utils/update.ts`)
 
@@ -153,13 +153,13 @@ npm install
 
 Copy `.env.sample` to `.env` and fill in:
 
-| Variable | Purpose |
-| --- | --- |
-| `APP_ID`, `DISCORD_TOKEN`, `PUBLIC_KEY` | Discord bot credentials |
-| `CLIENT_ID`, `CLIENT_SECRET`, `REDIRECT_URI` | Discord OAuth2 app credentials |
-| `RIOT_API_KEY`, `RIOT_BASE_API` | Riot API access (regional routing, e.g. `https://europe.api.riotgames.com`) |
-| `DATABASE_URL` | Neon/Postgres connection string |
-| `REDIS_URL` | Redis connection string |
+| Variable                                     | Purpose                                                                     |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| `APP_ID`, `DISCORD_TOKEN`, `PUBLIC_KEY`      | Discord bot credentials                                                     |
+| `CLIENT_ID`, `CLIENT_SECRET`, `REDIRECT_URI` | Discord OAuth2 app credentials                                              |
+| `RIOT_API_KEY`, `RIOT_BASE_API`              | Riot API access (regional routing, e.g. `https://europe.api.riotgames.com`) |
+| `DATABASE_URL`                               | Neon/Postgres connection string                                             |
+| `REDIS_URL`                                  | Redis connection string                                                     |
 
 Push the schema to your database:
 

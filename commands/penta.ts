@@ -25,11 +25,15 @@ const penta: Command = {
 
     const membersInGame = getMembersInGame(message.guild);
     const usersInGame = (
-      await Promise.all(membersInGame.map((member) => getUserByDiscordId(member.id)))
+      await Promise.all(
+        membersInGame.map((member) => getUserByDiscordId(member.id)),
+      )
     ).filter((user) => user !== null);
 
     if (usersInGame.length < 2) {
-      return void message.reply("Not enough tracked players currently in a game together.");
+      return void message.reply(
+        "Not enough tracked players currently in a game together.",
+      );
     }
 
     // Flow should be as follows:

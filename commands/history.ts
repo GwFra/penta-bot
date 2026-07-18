@@ -26,7 +26,9 @@ const history: Command = {
       const puuid = puuidData.puuid;
       const matchesData = await fetchJSON<string[]>(MATCHES_API(puuid));
 
-      const combineMatches = matchesData.map((matchId) => fetchJSON<RiotMatch>(MATCH_API(matchId)));
+      const combineMatches = matchesData.map((matchId) =>
+        fetchJSON<RiotMatch>(MATCH_API(matchId)),
+      );
       // rate limit issue - might need some long awaiting work around
       const matchResults = await Promise.all(combineMatches);
 

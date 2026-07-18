@@ -33,8 +33,15 @@ export async function removePlayerFromGame(
 ): Promise<RemovePlayerResult> {
   const matchId = await redis.hget(ACTIVE_PLAYERS_KEY, discordId);
   await redis.hdel(ACTIVE_PLAYERS_KEY, discordId);
-  if (!matchId) return { matchId: null, others: [] };
-  return { matchId, others: await getPlayersInGame(matchId) };
+  if (!matchId)
+    return {
+      matchId: null,
+      others: [],
+    };
+  return {
+    matchId,
+    others: await getPlayersInGame(matchId),
+  };
 }
 
 // All tracked discordIds currently marked as being in the given matchId.

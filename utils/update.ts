@@ -1,4 +1,10 @@
-import { fetchJSON, PUUID_API, MATCHES_API, MATCH_API, MATCH_TIMELINE } from "./api.js";
+import {
+  fetchJSON,
+  PUUID_API,
+  MATCHES_API,
+  MATCH_API,
+  MATCH_TIMELINE,
+} from "./api.js";
 import { withRetry } from "./retry.js";
 import { upsertUser } from "../services/userStore.js";
 import { saveMatchStats } from "../services/stats.js";
@@ -38,7 +44,9 @@ interface MatchResultSummary {
   stolenPentas: StolenPentaEvent[];
 }
 
-export async function obtainResults(discordUser: unknown): Promise<MatchResultSummary> {
+export async function obtainResults(
+  _discordUser: unknown,
+): Promise<MatchResultSummary> {
   // Pre-existing bug: PUUID_API is a URL-builder function, not a URL - this
   // needs a real Riot id argument to actually work. obtainResults is
   // unused/placeholder logic (see README "Known gaps"), kept as-is here
@@ -54,7 +62,9 @@ export async function obtainResults(discordUser: unknown): Promise<MatchResultSu
     fetchJSON<RiotMatchTimeline>(MATCH_TIMELINE(matchId)),
   ]);
 
-  const participant = matchData.info.participants.find((p) => p.puuid === puuid)!;
+  const participant = matchData.info.participants.find(
+    (p) => p.puuid === puuid,
+  )!;
   const {
     summoner1Id,
     summoner1Casts,
@@ -77,13 +87,20 @@ export async function obtainResults(discordUser: unknown): Promise<MatchResultSu
 
   const teammateParticipantIds = new Set(
     matchData.info.participants
-      .filter((p) => p.teamId === teamId && p.participantId !== participant.participantId)
+      .filter(
+        (p) =>
+          p.teamId === teamId && p.participantId !== participant.participantId,
+      )
       .map((p) => p.participantId),
   );
 
   const stolenPentas =
     largestMultiKill >= 4
-      ? findStolenPentas(matchTimeline, participant.participantId, teammateParticipantIds)
+      ? findStolenPentas(
+          matchTimeline,
+          participant.participantId,
+          teammateParticipantIds,
+        )
       : [];
 
   // Ensure user exists in DB
@@ -123,22 +140,36 @@ export async function obtainResultsForMatch(
 ): Promise<MatchResultSummary[]> {
   // Match-v5 briefly 404s right after a game ends, before Riot has finished
   // processing it - retry with backoff until it's available.
-  const matchData = await withRetry(() => fetchJSON<RiotMatch>(MATCH_API(matchId)));
-  const matchTimeline = await fetchJSON<RiotMatchTimeline>(MATCH_TIMELINE(matchId));
+  const matchData = await withRetry(() =>
+    fetchJSON<RiotMatch>(MATCH_API(matchId)),
+  );
+  const matchTimeline = await fetchJSON<RiotMatchTimeline>(
+    MATCH_TIMELINE(matchId),
+  );
 
   const trackedParticipants = trackedUsers
     .map((user) => {
-      const participant = matchData.info.participants.find((p) => p.puuid === user.puuid);
+      const participant = matchData.info.participants.find(
+        (p) => p.puuid === user.puuid,
+      );
       return participant ? { user, participant } : null;
     })
     .filter(
-      (entry): entry is { user: User; participant: RiotParticipant } => entry !== null,
+      (
+        entry,
+      ): entry is {
+        user: User;
+        participant: RiotParticipant;
+      } => entry !== null,
     );
 
   // participantId -> our internal user id, for every tracked player Riot
   // confirms was actually in this match.
   const userIdByParticipantId = new Map<number, number>(
-    trackedParticipants.map(({ user, participant }) => [participant.participantId, user.id]),
+    trackedParticipants.map(({ user, participant }) => [
+      participant.participantId,
+      user.id,
+    ]),
   );
 
   const results: MatchResultSummary[] = [];
@@ -166,7 +197,11 @@ export async function obtainResultsForMatch(
 
     const teammateParticipantIds = new Set(
       matchData.info.participants
-        .filter((p) => p.teamId === teamId && p.participantId !== participant.participantId)
+        .filter(
+          (p) =>
+            p.teamId === teamId &&
+            p.participantId !== participant.participantId,
+        )
         .map((p) => p.participantId),
     );
 
@@ -174,7 +209,11 @@ export async function obtainResultsForMatch(
     // recorded when the player who stole it is also a tracked user.
     const stolenPentas: StolenPentaEvent[] =
       largestMultiKill >= 4
-        ? findStolenPentas(matchTimeline, participant.participantId, teammateParticipantIds)
+        ? findStolenPentas(
+            matchTimeline,
+            participant.participantId,
+            teammateParticipantIds,
+          )
             .filter((steal) => userIdByParticipantId.has(steal.stolenBy))
             .map((steal) => ({
               stolenBy: userIdByParticipantId.get(steal.stolenBy)!,
@@ -226,16 +265,28 @@ function findMultiKillTimestamps(
     .filter((e) => e.killerId === participantId)
     .map((e) => e.timestamp);
 
-  return kills.reduce<{ results: MultiKillStreak[]; streak: number[] }>(
+  return kills.reduce<{
+    results: MultiKillStreak[];
+    streak: number[];
+  }>(
     ({ results, streak }, ts) => {
       const active =
-        streak.length && ts - streak[streak.length - 1] <= MULTI_KILL_WINDOW_MS ? streak : [];
+        streak.length && ts - streak[streak.length - 1] <= MULTI_KILL_WINDOW_MS
+          ? streak
+          : [];
       const next = [...active, ts];
       return {
         streak: next,
         results:
           next.length === 4
-            ? [...results, { startedAt: next[0], endedAt: ts, durationMs: ts - next[0] }]
+            ? [
+                ...results,
+                {
+                  startedAt: next[0],
+                  endedAt: ts,
+                  durationMs: ts - next[0],
+                },
+              ]
             : results,
       };
     },
@@ -257,7 +308,11 @@ function findStolenPentas(
 
   return quadKills.flatMap(({ endedAt }) =>
     killEvents
-      .filter((e) => e.timestamp > endedAt && e.timestamp <= endedAt + PENTA_KILL_WINDOW_MS)
+      .filter(
+        (e) =>
+          e.timestamp > endedAt &&
+          e.timestamp <= endedAt + PENTA_KILL_WINDOW_MS,
+      )
       .filter((e) => teammateParticipantIds.has(e.killerId))
       .map((e) => ({
         stolenBy: e.killerId,

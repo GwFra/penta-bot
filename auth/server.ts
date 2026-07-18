@@ -39,7 +39,9 @@ router.get("/auth/discord/callback", async (req, res) => {
   try {
     const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
       body: new URLSearchParams({
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
@@ -53,20 +55,28 @@ router.get("/auth/discord/callback", async (req, res) => {
       throw new Error(`Token exchange failed: ${tokenRes.status}`);
     }
 
-    const { access_token, token_type } = (await tokenRes.json()) as DiscordTokenResponse;
+    const { access_token, token_type } =
+      (await tokenRes.json()) as DiscordTokenResponse;
 
     console.log(`Access token: ${access_token}`);
     console.log(`Token type: ${token_type}`);
 
     // Use the access token to fetch the user's identity - not too sure what we want from this
     const userRes = await fetch("https://discord.com/api/users/@me", {
-      headers: { Authorization: `${token_type} ${access_token}` },
+      headers: {
+        Authorization: `${token_type} ${access_token}`,
+      },
     });
     const user = (await userRes.json()) as DiscordUser;
 
-    const connectionsRes = await fetch("https://discord.com/api/users/@me/connections", {
-      headers: { Authorization: `${token_type} ${access_token}` },
-    });
+    const connectionsRes = await fetch(
+      "https://discord.com/api/users/@me/connections",
+      {
+        headers: {
+          Authorization: `${token_type} ${access_token}`,
+        },
+      },
+    );
     // obtain league of legends connections = connections.find(conn => conn.type === "leagueoflegends");
     const connections = await connectionsRes.json();
     console.log(`Connections: ${JSON.stringify(connections, null, 2)}`);

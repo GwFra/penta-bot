@@ -17,10 +17,19 @@ export async function upsertUser({
 }: UpsertUserInput): Promise<User> {
   const [user] = await db
     .insert(users)
-    .values({ discordId, discordName, lolName, puuid })
+    .values({
+      discordId,
+      discordName,
+      lolName,
+      puuid,
+    })
     .onConflictDoUpdate({
       target: users.discordId,
-      set: { discordName, lolName, puuid },
+      set: {
+        discordName,
+        lolName,
+        puuid,
+      },
     })
     .returning();
   return user;
