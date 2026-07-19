@@ -3,8 +3,24 @@ import {
   users,
   matchStats,
   stolenPentas as stolenPentasDB,
+  type User,
 } from "../db/schema.js";
 import { eq, sum } from "drizzle-orm";
+
+interface StolenPenta {
+  stolenBy: number;
+  stolenFrom: number;
+  timestamp: number;
+}
+
+interface SaveMatchStatsInput {
+  userId: number;
+  matchId: string;
+  pentaKills: number;
+  snowballsHit: number;
+  snowballsMissed: number;
+  stolenPentas: StolenPenta[];
+}
 
 export async function saveMatchStats({
   userId,
@@ -13,10 +29,16 @@ export async function saveMatchStats({
   snowballsHit,
   snowballsMissed,
   stolenPentas,
-}) {
+}: SaveMatchStatsInput): Promise<void> {
   await db
     .insert(matchStats)
-    .values({ userId, matchId, pentaKills, snowballsHit, snowballsMissed })
+    .values({
+      userId,
+      matchId,
+      pentaKills,
+      snowballsHit,
+      snowballsMissed,
+    })
     .onConflictDoNothing();
 
   if (stolenPentas.length) {
@@ -31,7 +53,15 @@ export async function saveMatchStats({
   }
 }
 
-export async function getUserStats(discordId) {
+interface UserStats extends User {
+  totalPentas: string | null;
+  totalSnowballsHit: string | null;
+  totalSnowballsMissed: string | null;
+}
+
+export async function getUserStats(
+  discordId: string,
+): Promise<UserStats | null> {
   const [user] = await db
     .select()
     .from(users)
@@ -50,7 +80,15 @@ export async function getUserStats(discordId) {
   return { ...user, ...totals };
 }
 
-export async function getStolenPentaStats(discordId) {
+interface StolenPentaRecord {
+  matchId: string;
+  gameTimestamp: number;
+  stolenFromName: string;
+}
+
+export async function getStolenPentaStats(
+  discordId: string,
+): Promise<StolenPentaRecord[]> {
   const [user] = await db
     .select()
     .from(users)
@@ -68,9 +106,11 @@ export async function getStolenPentaStats(discordId) {
     .where(eq(stolenPentasDB.stolenBy, user.id));
 }
 
-export async function getServerTotalPentas() {
+export async function getServerTotalPentas(): Promise<number> {
   const [result] = await db
-    .select({ total: sum(matchStats.pentaKills) })
+    .select({
+      total: sum(matchStats.pentaKills),
+    })
     .from(matchStats);
   return Number(result.total ?? 0);
 }

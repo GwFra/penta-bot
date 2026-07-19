@@ -7,38 +7,46 @@ Drizzle ORM, and live game membership is tracked in Redis.
 
 ## Project structure
 
+The project is TypeScript throughout (Node's native ESM, no framework). Source
+lives as `.ts`; `npm run build` compiles it to `dist/` for running.
+
 ```
 ├── auth
-│   └── server.js       -> Express server implementing the Discord OAuth2 flow (WIP)
-├── commands            -> chat commands, auto-loaded from this folder
-│   ├── ping.js          -> liveness check
-│   ├── history.js       -> a user's recent ARAM KDA
-│   └── penta.js         -> penta/quad-kill summary for a live/finished game (WIP)
+│   └── server.ts        -> Express server implementing the Discord OAuth2 flow (WIP)
+├── commands             -> chat commands, auto-loaded from this folder
+│   ├── ping.ts           -> liveness check
+│   ├── history.ts        -> a user's recent ARAM KDA
+│   └── penta.ts          -> penta/quad-kill summary for a live/finished game (WIP)
 ├── services
-│   ├── userStore.js     -> CRUD for the `users` table (Postgres)
-│   ├── stats.js         -> reads/writes match stats & stolen pentas (Postgres)
-│   └── gameQueue.js     -> tracks which tracked players are in which live game (Redis)
+│   ├── userStore.ts      -> CRUD for the `users` table (Postgres)
+│   ├── stats.ts          -> reads/writes match stats & stolen pentas (Postgres)
+│   └── gameQueue.ts      -> tracks which tracked players are in which live game (Redis)
 ├── utils
-│   ├── api.js            -> Riot API URL builders + fetchJSON helper
-│   ├── retry.js           -> exponential-backoff retry wrapper
-│   └── update.js          -> match/timeline analysis (multikills, stolen pentas) (WIP)
+│   ├── api.ts             -> Riot API URL builders + fetchJSON helper
+│   ├── retry.ts            -> exponential-backoff retry wrapper
+│   ├── update.ts           -> match/timeline analysis (multikills, stolen pentas) (WIP)
+│   └── env.ts              -> requireEnv() - fail-fast required env var lookup
+├── types
+│   ├── command.ts         -> shared `Command` interface for command modules
+│   └── riot.ts             -> minimal typings for the Riot API responses in use
 ├── db
-│   ├── index.js          -> Drizzle/Neon client
-│   └── schema.js          -> table definitions (users, matchStats, stolenPentas)
+│   ├── index.ts           -> Drizzle/Neon client
+│   └── schema.ts           -> table definitions (users, matchStats, stolenPentas)
 ├── scripts
-│   └── migrate.js        -> runs schema.sql against the configured database
-├── drizzle.config.js     -> drizzle-kit config (used by `npm run db:push`)
-├── index.js              -> app entrypoint: Discord client, command loader, presence watcher
+│   └── migrate.ts         -> runs schema.sql against the configured database
+├── drizzle.config.ts      -> drizzle-kit config (used by `npm run db:push`)
+├── index.ts               -> app entrypoint: Discord client, command loader, presence watcher
+├── tsconfig.json
 ├── .env.sample
 └── package.json
 ```
 
 ## How it works
 
-### Startup (`index.js`)
+### Startup (`index.ts`)
 
 - Loads every file in `commands/` and registers it by its `name` export.
-- Logs into Discord and starts a small Express auth server (`auth/server.js`)
+- Logs into Discord and starts a small Express auth server (`auth/server.ts`)
   on `PORT` (default `3000`).
 - Listens for two kinds of events:
   - `messageCreate` — dispatches `!`-prefixed messages to the matching command.
@@ -55,13 +63,13 @@ Discord Rich Presence:
    `puuid`, it calls the Riot Spectator API (with retry/backoff via
    `withRetry`) to get the live `gameId`, converts it to a match-v5 id
    (`toMatchId`, e.g. `EUW1_1234567890`), then records the player as "in that
-   match" in Redis (`addPlayerToGame`) via `services/gameQueue.js`. This also
+   match" in Redis (`addPlayerToGame`) via `services/gameQueue.ts`. This also
    returns which other tracked players are already in the same match.
 2. **Game end** (`In Game` → `In Lobby`): removes the player from the Redis
    match tracker (`removePlayerFromGame`), which returns the matchId plus any
    other tracked players who were in it. It then looks up all tracked
    participants (the player + those others) and calls
-   `obtainResultsForMatch(matchId, trackedUsers)` (`utils/update.js`), which
+   `obtainResultsForMatch(matchId, trackedUsers)` (`utils/update.ts`), which
    polls the Riot match-v5 API with backoff (it briefly 404s right after a
    game ends, before Riot finishes processing it) until the finished match is
    available, then computes and saves each tracked player's stats. Results
@@ -75,13 +83,13 @@ silently skipped.
 
 All commands use the `!` prefix (e.g. `!ping`).
 
-| Command | Usage | Description |
-| --- | --- | --- |
-| `!ping` | `!ping` | Replies "Pong!" — basic liveness check. |
-| `!history` | `!history [riotId]` | Looks up a Riot account (defaults to the caller's linked `lolName`), fetches their last 10 ARAM (queue 450) match IDs, pulls each match, and replies with combined kills/deaths/assists across those games. |
-| `!penta` | `!penta` | Server-only. Finds guild members currently showing an "In Game" League of Legends presence, filters to ones that are tracked users, and (if 2+ are found) runs `obtainResults` to summarize penta/multikill data for the game. Still uses the older, hardcoded `obtainResults` path (see below) rather than the automatic per-match flow. |
+| Command    | Usage               | Description                                                                                                                                                                                                                                                                                                                               |
+| ---------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `!ping`    | `!ping`             | Replies "Pong!" — basic liveness check.                                                                                                                                                                                                                                                                                                   |
+| `!history` | `!history [riotId]` | Looks up a Riot account (defaults to the caller's linked `lolName`), fetches their last 10 ARAM (queue 450) match IDs, pulls each match, and replies with combined kills/deaths/assists across those games.                                                                                                                               |
+| `!penta`   | `!penta`            | Server-only. Finds guild members currently showing an "In Game" League of Legends presence, filters to ones that are tracked users, and (if 2+ are found) runs `obtainResults` to summarize penta/multikill data for the game. Still uses the older, hardcoded `obtainResults` path (see below) rather than the automatic per-match flow. |
 
-### Match/kill analysis (`utils/update.js`)
+### Match/kill analysis (`utils/update.ts`)
 
 Both entry points share the same kill-analysis logic, computed from a
 match's data and timeline:
@@ -93,12 +101,12 @@ match's data and timeline:
   30 seconds (`PENTA_KILL_WINDOW_MS`) after the end of that player's 4-kill
   streak (kills within a 10s window, `MULTI_KILL_WINDOW_MS`, count as one
   streak) is considered a "stolen" potential penta.
-- Saves the computed stats via `services/stats.js`.
+- Saves the computed stats via `services/stats.ts`.
 
 There are two entry points into this logic:
 
 - **`obtainResultsForMatch(matchId, trackedUsers)`** — the automatic path
-  used by the presence-based game-end flow in `index.js` (see above). Given a
+  used by the presence-based game-end flow in `index.ts` (see above). Given a
   known matchId and the tracked users who were in it, it polls match-v5 with
   retry until the match is ready, matches each tracked user to their
   participant by `puuid`, and saves per-user stats. Stolen-penta records are
@@ -128,7 +136,7 @@ There are two entry points into this logic:
   currently in a tracked live game, used to determine which tracked players
   are in the same match and to look up that match once the game finishes.
 
-### Discord OAuth2 (`auth/server.js`)
+### Discord OAuth2 (`auth/server.ts`)
 
 An Express server exposing `/auth/discord` (redirects to Discord's OAuth2
 consent screen requesting `identify connections` scope) and
@@ -145,13 +153,13 @@ npm install
 
 Copy `.env.sample` to `.env` and fill in:
 
-| Variable | Purpose |
-| --- | --- |
-| `APP_ID`, `DISCORD_TOKEN`, `PUBLIC_KEY` | Discord bot credentials |
-| `CLIENT_ID`, `CLIENT_SECRET`, `REDIRECT_URI` | Discord OAuth2 app credentials |
-| `RIOT_API_KEY`, `RIOT_BASE_API` | Riot API access (regional routing, e.g. `https://europe.api.riotgames.com`) |
-| `DATABASE_URL` | Neon/Postgres connection string |
-| `REDIS_URL` | Redis connection string |
+| Variable                                     | Purpose                                                                     |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| `APP_ID`, `DISCORD_TOKEN`, `PUBLIC_KEY`      | Discord bot credentials                                                     |
+| `CLIENT_ID`, `CLIENT_SECRET`, `REDIRECT_URI` | Discord OAuth2 app credentials                                              |
+| `RIOT_API_KEY`, `RIOT_BASE_API`              | Riot API access (regional routing, e.g. `https://europe.api.riotgames.com`) |
+| `DATABASE_URL`                               | Neon/Postgres connection string                                             |
+| `REDIS_URL`                                  | Redis connection string                                                     |
 
 Push the schema to your database:
 
@@ -161,14 +169,23 @@ npm run db:push
 
 ### Run the app
 
+Build once, then run the compiled output (`dist/`):
+
 ```bash
+npm run build
 npm run start
 ```
 
-or, with auto-restart on file changes:
+or, for development (runs the `.ts` sources directly via [tsx](https://github.com/privatenumber/tsx), restarting on file changes — no build step needed):
 
 ```bash
 npm run dev
+```
+
+Type-check without emitting (useful in CI or before committing):
+
+```bash
+npm run typecheck
 ```
 
 ## Known gaps / in progress
@@ -178,8 +195,9 @@ npm run dev
   matchId (or to be replaced by the automatic flow's console output).
 - Match results from the automatic post-game flow are only logged to the
   console, not posted back to a Discord channel.
-- The Discord OAuth2 callback doesn't persist the linked Riot account, and
-  has a bug where it references an undefined `user` variable in its response.
+- The Discord OAuth2 callback doesn't persist the linked Riot account back
+  into the `users` table, so it doesn't actually complete the "link my LoL
+  account" flow yet.
 - Command lookup for `!history`/`!penta` assumes the caller already has a
   `users` row linking their Discord account to a `lolName`/`puuid` — there's
   no command yet to self-register or link an account (this is what the OAuth2
