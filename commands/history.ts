@@ -1,7 +1,7 @@
-import { fetchJSON, PUUID_API, MATCHES_API, MATCH_API } from "../utils/api.js";
-import { getUserByDiscordUsername } from "../services/userStore.js";
-import type { Command } from "../types/command.js";
-import type { RiotAccount, RiotMatch } from "../types/riot.js";
+import { fetchJSON, PUUID_API, MATCHES_API, MATCH_API } from "../utils/api.ts";
+import { getUserByDiscordUsername } from "../services/userStore.ts";
+import type { Command } from "../types/command.ts";
+import type { RiotAccount, RiotMatch } from "../types/riot.ts";
 
 const history: Command = {
   name: "history",

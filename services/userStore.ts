@@ -1,5 +1,5 @@
-import { db } from "../db/index.js";
-import { users, type User } from "../db/schema.js";
+import { db } from "../db/index.ts";
+import { users, type User } from "../db/schema.ts";
 import { eq } from "drizzle-orm";
 
 interface UpsertUserInput {

@@ -1,10 +1,10 @@
-import { db } from "../db/index.js";
+import { db } from "../db/index.ts";
 import {
   users,
   matchStats,
   stolenPentas as stolenPentasDB,
   type User,
-} from "../db/schema.js";
+} from "../db/schema.ts";
 import { eq, sum } from "drizzle-orm";
 
 interface StolenPenta {

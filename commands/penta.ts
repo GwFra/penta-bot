@@ -1,6 +1,6 @@
-import { obtainResults } from "../utils/update.js";
-import { getUserByDiscordId } from "../services/userStore.js";
-import type { Command } from "../types/command.js";
+import { obtainResults } from "../utils/update.ts";
+import { getUserByDiscordId } from "../services/userStore.ts";
+import type { Command } from "../types/command.ts";
 import type { Guild } from "discord.js";
 
 const GAME_NAME = "League of Legends";

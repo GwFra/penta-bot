@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { readFileSync } from "fs";
 import { neon } from "@neondatabase/serverless";
-import { requireEnv } from "../utils/env.js";
+import { requireEnv } from "../utils/env.ts";
 
 const sql = neon(requireEnv("DATABASE_URL"));
 const schema = readFileSync("./schema.sql", "utf8");

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="base" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#404eed"/>
+      <stop offset="55%" stop-color="#3c45e0"/>
+      <stop offset="100%" stop-color="#2b2fbf"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="20%" cy="15%" r="60%">
+      <stop offset="0%" stop-color="#7289da" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#7289da" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="85%" cy="90%" r="65%">
+      <stop offset="0%" stop-color="#5865f2" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#5865f2" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="blob" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.02"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#base)"/>
+  <rect width="1920" height="1080" fill="url(#glow1)"/>
+  <rect width="1920" height="1080" fill="url(#glow2)"/>
+
+  <!-- soft floating blobs, like Discord's marketing pages -->
+  <path fill="url(#blob)" d="M-100 780 C 200 640, 480 900, 820 800 C 1100 720, 1050 1080, 700 1120 L -100 1120 Z"/>
+  <path fill="url(#blob)" d="M2020 260 C 1740 380, 1560 160, 1300 280 C 1080 380, 1200 40, 1520 -40 L 2020 -40 Z"/>
+  <circle cx="1600" cy="820" r="180" fill="#ffffff" opacity="0.04"/>
+  <circle cx="300" cy="240" r="140" fill="#ffffff" opacity="0.05"/>
+  <circle cx="1050" cy="120" r="60" fill="#ffffff" opacity="0.05"/>
+
+  <!-- subtle star sparkles -->
+  <g fill="#ffffff" opacity="0.35">
+    <circle cx="420" cy="520" r="2.5"/>
+    <circle cx="880" cy="300" r="2"/>
+    <circle cx="1350" cy="560" r="2.5"/>
+    <circle cx="1650" cy="200" r="2"/>
+    <circle cx="240" cy="880" r="2"/>
+    <circle cx="1150" cy="900" r="2.5"/>
+    <circle cx="720" cy="720" r="1.5"/>
+    <circle cx="1780" cy="640" r="1.5"/>
+  </g>
+</svg>

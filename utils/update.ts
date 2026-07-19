@@ -4,18 +4,18 @@ import {
   MATCHES_API,
   MATCH_API,
   MATCH_TIMELINE,
-} from "./api.js";
-import { withRetry } from "./retry.js";
-import { upsertUser } from "../services/userStore.js";
-import { saveMatchStats } from "../services/stats.js";
-import type { User } from "../db/schema.js";
+} from "./api.ts";
+import { withRetry } from "./retry.ts";
+import { upsertUser } from "../services/userStore.ts";
+import { saveMatchStats } from "../services/stats.ts";
+import type { User } from "../db/schema.ts";
 import type {
   RiotAccount,
   RiotMatch,
   RiotMatchTimeline,
   RiotTimelineEvent,
   RiotParticipant,
-} from "../types/riot.js";
+} from "../types/riot.ts";
 
 // Process should be as follows
 // 1. Detects a game has finished with x number of users in discord (2 or more)
