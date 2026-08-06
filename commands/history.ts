@@ -1,29 +1,32 @@
-import { fetchJSON, PUUID_API, MATCHES_API, MATCH_API } from "../utils/api.ts";
-import { getUserByDiscordUsername } from "../services/userStore.ts";
+import { fetchJSON, MATCHES_API, MATCH_API } from "../utils/api.ts";
+import { getUserByDiscordId } from "../services/userStore.ts";
 import type { Command } from "../types/command.ts";
-import type { RiotAccount, RiotMatch } from "../types/riot.ts";
+import type { RiotMatch } from "../types/riot.ts";
 
 const history: Command = {
   name: "history",
-  async execute(message, args) {
-    const argsUser = args.join(" ");
-    const trackedUser = await getUserByDiscordUsername(message.author.username);
-    console.log(trackedUser);
-    const userToSearch = argsUser || trackedUser?.lolName;
+  async execute(message) {
+    // Account linking (services/accountLink.ts) already resolved and stored
+    // the puuid for this Discord ID, so we can pull it straight from the DB
+    // instead of hitting Riot's PUUID_API again here.
+    const mentionedUser = message.mentions.users.first();
+    const trackedUser = await getUserByDiscordId(
+      mentionedUser?.id ?? message.author.id,
+    );
 
-    if (!userToSearch) {
-      return void message.reply("Usage: `!history <user>`");
+    if (!trackedUser?.puuid) {
+      return void message.reply(
+        mentionedUser
+          ? `${mentionedUser.username} hasn't linked their League account yet.`
+          : "You haven't linked your League account yet - link it via Discord connections first.",
+      );
     }
 
     // Could make this loading thing a bit more interesting
     const reply = await message.reply(`Fetching match history...`);
 
     try {
-      const puuidData = await fetchJSON<RiotAccount>(PUUID_API(userToSearch));
-      if (!puuidData) {
-        return void message.reply(`Oops, no stats found for ${userToSearch}`);
-      }
-      const puuid = puuidData.puuid;
+      const puuid = trackedUser.puuid;
       const matchesData = await fetchJSON<string[]>(MATCHES_API(puuid));
 
       const combineMatches = matchesData.map((matchId) =>

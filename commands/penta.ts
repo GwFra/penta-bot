@@ -30,11 +30,11 @@ const penta: Command = {
       )
     ).filter((user) => user !== null);
 
-    if (usersInGame.length < 2) {
-      return void message.reply(
-        "Not enough tracked players currently in a game together.",
-      );
-    }
+    // if (usersInGame.length < 2) {
+    //   return void message.reply(
+    //     "Not enough tracked players currently in a game together.",
+    //   );
+    // }
 
     // Flow should be as follows:
     // On start of game, store the amount of players in a game - as long as it's more than 2

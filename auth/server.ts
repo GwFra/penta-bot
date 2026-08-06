@@ -2,6 +2,10 @@ import "dotenv/config";
 import express from "express";
 import { requireEnv } from "../utils/env.ts";
 import { successPage, errorPage } from "./pages.ts";
+import {
+  linkLeagueAccount,
+  type DiscordConnection,
+} from "../services/accountLink.ts";
 
 const router = express.Router();
 
@@ -69,6 +73,27 @@ router.get("/auth/discord/callback", async (req, res) => {
       },
     });
     const user = (await userRes.json()) as DiscordUser;
+
+    // The connections scope lets us read the user's linked accounts - this
+    // is the only context where Discord exposes them (bot tokens can't).
+    const connectionsRes = await fetch(
+      "https://discord.com/api/users/@me/connections",
+      {
+        headers: {
+          Authorization: `${token_type} ${access_token}`,
+        },
+      },
+    );
+    const connections = (await connectionsRes.json()) as DiscordConnection[];
+
+    const linkedUser = await linkLeagueAccount(user, connections);
+    if (!linkedUser) {
+      return void res.send(
+        errorPage(
+          "No League of Legends connection found on your Discord account. Add one under Settings → Connections and try again.",
+        ),
+      );
+    }
 
     res.send(successPage(user));
   } catch (err) {

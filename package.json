@@ -17,7 +17,9 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "redis:example": "tsx scripts/redis-example.ts",
+    "riot:example": "tsx scripts/riot-example.ts"
   },
   "license": "MIT",
   "dependencies": {

@@ -51,7 +51,7 @@ export async function getUserByDiscordUsername(
   const [user] = await db
     .select()
     .from(users)
-    .where(eq(users.discordName, `#${username}`));
+    .where(eq(users.discordName, username));
   return user ?? null;
 }
 
