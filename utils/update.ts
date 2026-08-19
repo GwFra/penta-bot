@@ -54,6 +54,8 @@ export async function obtainResultsForMatch(
     participantId,
   }));
 
+  console.log(killerIds);
+
   return playerGameData
     .filter((playerData) => playerData !== undefined)
     .map((playerData) => {
@@ -127,6 +129,45 @@ interface MultiKillStreak {
   durationMs: number;
 }
 
+const findQuadKills = (
+  {
+    results,
+    streak,
+  }: {
+    results: MultiKillStreak[];
+    streak: number[];
+  },
+  ts: number,
+): { results: MultiKillStreak[]; streak: number[] } => {
+  const active =
+    streak.length && ts - streak[streak.length - 1] <= MULTI_KILL_WINDOW_MS
+      ? streak
+      : [];
+  const next = [...active, ts];
+  return {
+    streak: next,
+    results:
+      next.length === 4
+        ? [
+            ...results,
+            {
+              startedAt: next[0],
+              endedAt: ts,
+              durationMs: ts - next[0],
+            },
+          ]
+        : results,
+  };
+};
+
+/**
+ * Loops over the timeline for the given player id (specific to the game), uses streaks array to track current
+ * kill straks and clearing if there's one that doesn't reach 4/quad-kill
+ *
+ * @param timeline
+ * @param participantId
+ * @returns array of timestamps for when the quad-kill occured
+ */
 function findMultiKillTimestamps(
   timeline: RiotMatchTimeline,
   participantId: number,
@@ -135,33 +176,12 @@ function findMultiKillTimestamps(
     .filter((e) => e.killerId === participantId)
     .map((e) => e.timestamp);
 
-  return kills.reduce<{
+  const { results } = kills.reduce<{
     results: MultiKillStreak[];
     streak: number[];
-  }>(
-    ({ results, streak }, ts) => {
-      const active =
-        streak.length && ts - streak[streak.length - 1] <= MULTI_KILL_WINDOW_MS
-          ? streak
-          : [];
-      const next = [...active, ts];
-      return {
-        streak: next,
-        results:
-          next.length === 4
-            ? [
-                ...results,
-                {
-                  startedAt: next[0],
-                  endedAt: ts,
-                  durationMs: ts - next[0],
-                },
-              ]
-            : results,
-      };
-    },
-    { results: [], streak: [] },
-  ).results;
+  }>(findQuadKills, { results: [], streak: [] });
+
+  return results;
 }
 
 // Stolen pentas are found by first identifying a target's quad-kill streaks

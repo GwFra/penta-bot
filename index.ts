@@ -22,6 +22,7 @@ import { obtainResultsForMatch } from "./utils/update.ts";
 
 const MOCK_PARTY_ID = "EXAMPLE_PARTY_ID";
 const __dirname = dirname(fileURLToPath(import.meta.url));
+// TODO: Pick something cooler
 const PREFIX = "!";
 
 const client = new Client({
@@ -83,6 +84,9 @@ async function isSpectatorGameLive(puuid: string): Promise<boolean> {
 // A tracked user transitioned into ARAM lobby initially and is added to the redis hget
 async function handleGameStart(presence: Presence): Promise<void> {
   const user = await getUserByDiscordId(presence.userId);
+
+  // Potentially ignore this if party.id is undefined
+  // Might also need to include the data from the party to see if specific member exist and remove them if the state changes
   const partyId = presence.activities[0].party?.id || MOCK_PARTY_ID;
   if (!user?.puuid || !partyId) {
     console.log(
@@ -93,11 +97,13 @@ async function handleGameStart(presence: Presence): Promise<void> {
 
   try {
     // TODO: Needs to handle people leaving lobby's but this can come later
+    // Potential overwrite existing hash when state changes based on party id and the data it gives back to display
     await redis.hset(
       // Party id should remain once the game ends and people are in the lobby
       // Might change state between ending and being in a lobby - will have to test
       partyId,
-      { [presence.userId]: user.puuid },
+      // Discord id and riot id
+      { [presence.userId]: user.puuid, updatedAt: new Date().toISOString() },
     );
     console.log(`${presence.user?.username} entered a lobby`);
   } catch (err) {
@@ -113,19 +119,36 @@ async function handleGameStart(presence: Presence): Promise<void> {
 // the match and compute stats for everyone who was in it - exactly once.
 async function handleGameEnd(
   oldPresence: Presence,
-  // Figure out what this may be needed for... datetime stamp?
   _: Presence,
 ): Promise<void> {
   // Could come from previous presence?
   const partyId = oldPresence.activities[0]?.party?.id || MOCK_PARTY_ID;
   if (partyId) {
     const players = await redis.hgetall(partyId);
-    // Obtain the valye which is the puuid
-    const playerPuuids = Object.values(players);
+    const lastUpdated = players.updatedAt;
+    console.log(
+      `Game ended for party ${partyId} (last updated ${lastUpdated})`,
+    );
+    // Obtain the values which is the Riot puuid
+    const playerPuuids = Object.entries(players)
+      .filter(([key]) => key !== "updatedAt")
+      .map(([_, value]) => value);
+
+    // Only require one user id to find the match
     const firstTry = playerPuuids[0];
     await withRetry(() => isSpectatorGameLive(firstTry));
-    const latestMatchId = await fetchJSON<string[]>(MATCHES_API(firstTry, 1));
+    // startTime is in seconds, lastUpdated is in ms
+    const latestMatchId = await fetchJSON<string[]>(
+      MATCHES_API(firstTry, 1, Number(Number(lastUpdated) / 1000)),
+    );
 
+    // Only works for official ARAM games - not customs
+    if (!latestMatchId || latestMatchId.length === 0) {
+      console.log("No match id found for the latest game");
+      return;
+    }
+
+    console.log(latestMatchId);
     const matchTimeline = await fetchJSON<RiotMatchTimeline>(
       MATCH_TIMELINE(latestMatchId[0]),
     );
@@ -136,7 +159,6 @@ async function handleGameEnd(
 client.on("presenceUpdate", async (oldPresence, newPresence) => {
   if (!newPresence?.user) return;
 
-  console.log(newPresence.activities);
   newPresence.activities.forEach((activity) =>
     console.log(JSON.stringify(activity)),
   );

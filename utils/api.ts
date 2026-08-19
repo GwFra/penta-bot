@@ -40,8 +40,12 @@ const PLATFORM = "EUW1";
 export const PUUID_API = (username: string): string =>
   `${process.env.RIOT_BASE_API}/riot/account/v1/accounts/by-riot-id/${username}/EUW?api_key=${process.env.RIOT_API_KEY}`;
 // Should only be used to fetch the history
-export const MATCHES_API = (puuid: string, matches = 10): string =>
-  `${process.env.RIOT_BASE_API}${MATCHES_V5}/by-puuid/${puuid}/ids?start=0&count=${matches}&queue=450&api_key=${process.env.RIOT_API_KEY}`;
+export const MATCHES_API = (
+  puuid: string,
+  matches = 10,
+  startedAfter?: number,
+): string =>
+  `${process.env.RIOT_BASE_API}${MATCHES_V5}/by-puuid/${puuid}/ids?start=0&count=${matches}&queue=450${startedAfter ? `&startTime=${startedAfter}` : ""}&api_key=${process.env.RIOT_API_KEY}`;
 export const MATCH_API = (matchId: string): string =>
   `${process.env.RIOT_BASE_API}${MATCHES_V5}/${matchId}?api_key=${process.env.RIOT_API_KEY}`;
 // Used to determine whether a penta kill was obtained or not - getting timeline of matchId
